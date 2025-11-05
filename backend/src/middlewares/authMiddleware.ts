@@ -1,35 +1,34 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import User, { IUser } from "../models/User.js";
+import User from "../models/User.js";
 
 export interface AuthRequest extends Request {
-  user?: IUser;
+  user?: any;
 }
 
-const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const authHeader = req.headers.authorization;
+    let token;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      res.status(401).json({ message: "No token provided" });
-      return;
+    // Try to get token from header or cookie
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
     }
 
-    const token = authHeader.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ message: "Not authorized, no token" });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
-
     const user = await User.findById(decoded.id).select("-password");
-    if (!user) {
-      res.status(401).json({ message: "User not found" });
-      return;
-    }
+
+    if (!user) return res.status(401).json({ message: "User not found" });
 
     req.user = user;
     next();
   } catch (error: any) {
-    console.error("Auth error:", error.message);
     res.status(401).json({ message: "Invalid or expired token" });
   }
 };
-
-export default authMiddleware;

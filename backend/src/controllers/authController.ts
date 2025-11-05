@@ -64,14 +64,30 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" }
     );
-
+    console.log(token)
     res.json({
       message: "Login successful",
       user: { id: user._id, name: user.name, email: user.email },
       token
     });
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
   } catch (error: any) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
+};
+
+export const logoutUser = (req: Request, res: Response) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+  });
+  res.json({ message: "Logged out successfully" });
 };
